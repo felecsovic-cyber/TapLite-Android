@@ -1,0 +1,72 @@
+
+name: Build TapLite APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download source
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Extract project
+        run: |
+          unzip -q "TapLite (1).zip" -d /tmp/taplite-src
+          test -f /tmp/taplite-src/app/build.gradle.kts
+          cp -R /tmp/taplite-src/app ./app
+
+      - name: Fix Java and Kotlin targets
+        run: |
+          cat > app/build.gradle.kts <<'EOF'
+          plugins {
+              id("com.android.application")
+              id("org.jetbrains.kotlin.android")
+          }
+
+          android {
+              namespace = "com.taplite"
+              compileSdk = 35
+
+              defaultConfig {
+                  applicationId = "com.taplite"
+                  minSdk = 26
+                  targetSdk = 28
+                  versionCode = 1
+                  versionName = "1.0"
+              }
+
+              compileOptions {
+                  sourceCompatibility = JavaVersion.VERSION_17
+                  targetCompatibility = JavaVersion.VERSION_17
+              }
+
+              kotlinOptions {
+                  jvmTarget = "17"
+              }
+          }
+          EOF
+
+      - name: Build APK
+        run: gradle assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: TapLite-APK
+          path: app/build/outputs/apk/debug/app-debug.apk
